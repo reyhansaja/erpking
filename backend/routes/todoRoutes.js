@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const todoController = require('../controllers/todoController');
-
+// Ganti baris import di paling atas file backend/routes/todoRoutes.js kamu g:
+const todoController = require('../controllers/todoController.js');
 router.get('/:userId', todoController.getUserTodos);
 router.post('/', todoController.createTodo);
 router.put('/:id', todoController.updateTodo);

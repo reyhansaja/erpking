@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const projectController = require('../controllers/projectController');
-const taskController = require('../controllers/taskController');
+// Ganti baris import di paling atas file backend/routes/projectRoutes.js kamu g:
+const projectController = require('../controllers/projectController.js');const taskController = require('../controllers/taskController');
 const bugNoteController = require('../controllers/bugNoteController');
 const chatController = require('../controllers/chatController');
 
@@ -10,6 +10,9 @@ router.get('/user/:userId', projectController.getUserProjects);
 router.post('/', projectController.createProject);
 router.get('/:id', projectController.getProjectDetails);
 router.post('/join/:token', projectController.joinProject);
+
+// MAIN MISSION: Rute Hapus Resmi
+router.delete('/:id', projectController.deleteProject);
 
 // Nested Tasks and Bugs within Project
 router.get('/:projectId/tasks', taskController.getProjectTasks);

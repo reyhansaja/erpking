@@ -3,6 +3,5 @@ const router = express.Router();
 const taskController = require('../controllers/taskController');
 
 // Task Routes (Nested under /api/tasks)
-router.put('/:id', taskController.updateTaskStatus);
-
+router.put('/:id', taskController.updateTaskUniversal);
 module.exports = router;

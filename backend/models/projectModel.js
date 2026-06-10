@@ -31,6 +31,16 @@ const Project = {
   getById: async (projectId) => {
     const [rows] = await db.query('SELECT * FROM projects WHERE id = ?', [projectId]);
     return rows[0];
+  },
+  delete: async (id) => {
+    try {
+      await db.query('DELETE FROM project_users WHERE project_id = ?', [id]);
+
+      const [result] = await db.query('DELETE FROM projects WHERE id = ?', [id]);
+      return result.affectedRows > 0;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

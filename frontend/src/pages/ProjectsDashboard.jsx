@@ -97,7 +97,7 @@ export default function ProjectsDashboard({ user }) {
 
   return (
     <div className="p-8 max-w-6xl mx-auto relative">
-      <div className="flex justify-between items-end mb-8">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
         <div>
           <h2 className="text-3xl font-bold text-gray-800">Your Workspaces</h2>
           <p className="text-gray-500 mt-1">
@@ -108,9 +108,9 @@ export default function ProjectsDashboard({ user }) {
         {currentRole !== 'USER' && (
           <button
             onClick={() => setIsCreating(!isCreating)}
-            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-medium"
+            className="bg-indigo-600 text-white px-4 py-2 text-sm rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-medium shrink-0"
           >
-            <Plus size={20} /> New Project
+            <Plus size={18} /> New Project
           </button>
         )}
       </div>
@@ -146,16 +146,16 @@ export default function ProjectsDashboard({ user }) {
           {currentRole !== 'USER' && (
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
               <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><LinkIcon size={18} className="text-indigo-600" /> Join Project</h3>
-              <form onSubmit={handleJoin} className="flex gap-2">
+              <form onSubmit={handleJoin} className="flex flex-col gap-2">
                 <input
                   type="text"
                   placeholder="Invite Token..."
                   value={joinToken}
                   onChange={(e) => setJoinToken(e.target.value)}
                   required
-                  className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
-                <button type="submit" className="bg-gray-800 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-900 transition">
+                <button type="submit" className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-900 transition">
                   Join
                 </button>
               </form>

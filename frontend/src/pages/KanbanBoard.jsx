@@ -136,9 +136,9 @@ export default function KanbanBoard({ projectId, user }) {
       </div>
 
       {/* Grid Kolom Kanban */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="flex gap-6 overflow-x-auto pb-4">
         {columns.map(col => (
-          <div key={col} className="kanban-column flex flex-col">
+          <div key={col} className="kanban-column flex flex-col flex-shrink-0 w-80">
             <h3 className="font-semibold text-gray-700 mb-4 px-2 uppercase tracking-wide text-sm">{columnTitles[col]}</h3>
             <div className="flex-1 space-y-3">
               {tasks.filter(t => t.status === col).map(task => (

@@ -13,10 +13,10 @@ const todoRoutes = require('./routes/todoRoutes');
 
 const app = express();
 
-// ==== SOLUSI ANTI CORS ERROR g ====
-// (Membuka gerbang untuk semua link frontend tanpa kecuali)
+// ==== CORS: gunakan FRONTEND_URL jika diset, fallback ke wildcard untuk dev
+const allowedOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*';
 app.use(cors({
-  origin: "*", 
+  origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -32,7 +32,7 @@ const server = http.createServer(app);
 // ==== SOCKET IO JUGA DIBIKIN KEBAL CORS ====
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"]
   }
 });

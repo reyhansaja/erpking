@@ -12,8 +12,8 @@ const bugNoteController = {
   createNote: async (req, res) => {
     try {
       const projectId = req.params.projectId;
-      const { type, content } = req.body;
-      const newNote = await BugNote.create(projectId, type, content);
+      const { title, type, content } = req.body;
+      const newNote = await BugNote.create(projectId, title, type, content);
       res.json(newNote);
     } catch (error) {
       res.status(500).json({ error: error.message });

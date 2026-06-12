@@ -6,7 +6,7 @@ import KanbanBoard from './KanbanBoard';
 import FeaturesBugs from './FeaturesBugs';
 import ProjectChat from './ProjectChat';
 
-const API_URL = 'https://apii-erp.infistream.id/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
 export default function ProjectDetail({ user }) {
   const { id } = useParams();

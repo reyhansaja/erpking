@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Folder, Plus, Link as LinkIcon, Trash, AlertTriangle } from 'lucide-react';
 
-const API_URL = 'https://apii-erp.infistream.id/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
 export default function ProjectsDashboard({ user }) {
   const [projects, setProjects] = useState([]);
@@ -15,18 +15,20 @@ export default function ProjectsDashboard({ user }) {
   // CONTROL POP-UP MODAL DELETE
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Ambil data user dari localStorage sebagai pelapis utama anti-delay refresh g!
+  // Ambil data user dari localStorage sebagai pelapis utama anti-delay refresh
   const localUserData = JSON.parse(localStorage.getItem('user'));
   const activeUser = user || localUserData;
 
-  // KODE BYPASS: Paksa selalu jadi SUPERADMIN g!
-  const currentRole = 'SUPERADMIN';
+  // Gunakan role asli dari user — bukan hardcoded
+  const currentRole = activeUser?.role || 'USER';
 
  const fetchProjects = async () => {
     try {
-      // KITA BALIKIN KE JALUR RESMI g! Pakai ID 1 (admin)
-      const userId = activeUser?.id || 1; 
+      setLoading(true);
+      const userId = activeUser?.id;
+      if (!userId) return; // Guard: jangan fetch jika userId belum ada
       const res = await axios.get(`${API_URL}/projects/user/${userId}`);
       
       const deletedIds = JSON.parse(localStorage.getItem('deleted_projects') || '[]');
@@ -36,19 +38,25 @@ export default function ProjectsDashboard({ user }) {
       
       setProjects(activeProjects);
     } catch (error) {
-      console.error("Gagal mengambil data proyek g:", error);
+      console.error("Gagal mengambil data proyek:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Pemicu Fetch data: Wajib nunggu sampai activeUser bener-bener siap di memori g!
+  // Fetch hanya saat activeUser.id sudah tersedia (cegah race condition)
   useEffect(() => {
-    fetchProjects();
-  }, [user, activeUser?.id]);
+    if (activeUser?.id) {
+      fetchProjects();
+    } else {
+      setLoading(false);
+    }
+  }, [activeUser?.id]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!newProjectName.trim()) return;
-    const userId = activeUser?.id || 1;
+    if (!newProjectName.trim() || !activeUser?.id) return;
+    const userId = activeUser.id;
     try {
       await axios.post(`${API_URL}/projects`, { name: newProjectName, description: newProjectDesc, userId: userId });
       setNewProjectName('');
@@ -62,8 +70,8 @@ export default function ProjectsDashboard({ user }) {
 
   const handleJoin = async (e) => {
     e.preventDefault();
-    if (!joinToken.trim()) return;
-    const userId = activeUser?.id || 1;
+    if (!joinToken.trim() || !activeUser?.id) return;
+    const userId = activeUser.id;
     try {
       await axios.post(`${API_URL}/projects/join/${joinToken}`, { userId: userId });
       setJoinToken('');
@@ -94,6 +102,15 @@ export default function ProjectsDashboard({ user }) {
     setIsDeleteModalOpen(false);
     setProjectToDelete(null);
   };
+
+  if (loading) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto flex flex-col items-center justify-center min-h-[300px] gap-4">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <p className="text-gray-500 font-medium">Memuat workspace kamu...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto relative">

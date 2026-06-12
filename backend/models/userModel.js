@@ -3,11 +3,15 @@ const bcrypt = require('bcryptjs');
 
 const User = {
   getAll: async () => {
-    const [rows] = await db.query('SELECT id, username, email FROM users');
+    const [rows] = await db.query('SELECT id, username, email, role FROM users');
     return rows;
   },
   getByEmail: async (email) => {
     const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    return rows[0];
+  },
+  getById: async (id) => {
+    const [rows] = await db.query('SELECT id, username, email, role FROM users WHERE id = ?', [id]);
     return rows[0];
   },
   create: async (username, email, password) => {
@@ -18,7 +22,10 @@ const User = {
       'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
       [username, email, password_hash]
     );
-    return { id: result.insertId, username, email };
+    return { id: result.insertId, username, email, role: 'USER' };
+  },
+  updateRole: async (userId, role) => {
+    await db.query('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
   }
 };
 

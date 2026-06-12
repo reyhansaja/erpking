@@ -1,0 +1,6 @@
+# Ignore local env files
+.env
+
+# node_modules and runtime artifacts
+node_modules
+dist

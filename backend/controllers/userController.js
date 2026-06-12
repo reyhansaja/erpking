@@ -18,7 +18,7 @@ const userController = {
       const { username, email, password } = req.body;
       const newUser = await User.create(username, email, password);
       
-      const token = jwt.sign({ id: newUser.id, username: newUser.username }, JWT_SECRET, { expiresIn: '1d' });
+      const token = jwt.sign({ id: newUser.id, username: newUser.username, role: newUser.role }, JWT_SECRET, { expiresIn: '1d' });
       res.json({ user: newUser, token });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -33,8 +33,32 @@ const userController = {
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-      const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1d' });
-      res.json({ user: { id: user.id, username: user.username, email: user.email }, token });
+      const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+      res.json({ user: { id: user.id, username: user.username, email: user.email, role: user.role || 'USER' }, token });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  updateUserRole: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { role } = req.body;
+      const validRoles = ['SUPERADMIN', 'ADMIN', 'USER'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: 'Role tidak valid. Gunakan: SUPERADMIN, ADMIN, atau USER' });
+      }
+      await User.updateRole(id, role);
+      res.json({ success: true, message: `Role berhasil diubah menjadi ${role}` });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  getUserById: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = await User.getById(id);
+      if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });
+      res.json(user);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

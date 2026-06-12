@@ -1,7 +1,7 @@
 const db = require('../db');
 
 const Project = {
-  getUserProjects: async (userId) => {
+  getByUserId: async (userId) => {
     const [rows] = await db.query(`
       SELECT p.* 
       FROM projects p
@@ -10,6 +10,9 @@ const Project = {
       ORDER BY p.created_at DESC
     `, [userId]);
     return rows;
+  },
+  getUserProjects: async (userId) => {
+    return Project.getByUserId(userId);
   },
   create: async (name, description, userId) => {
     const invite_token = Math.random().toString(36).substring(2, 15);

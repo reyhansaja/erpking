@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Send, User } from 'lucide-react';
 
-const API_URL = 'https://apii-erp.infistream.id/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
 export default function ProjectChat({ projectId, user }) {
   const [messages, setMessages] = useState([]);

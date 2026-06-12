@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Calendar as CalendarIcon, LogOut, FolderHeart, ListTodo, Shield, Menu, X } from 'lucide-react';
+import axios from 'axios';
 import ProjectsDashboard from './pages/ProjectsDashboard';
 import ProjectDetail from './pages/ProjectDetail';
 import PersonalCalendar from './pages/PersonalCalendar';
 import Login from './pages/Login';
 import TodoList from './pages/TodoList';
 import RoleManagement from './pages/RoleManagement';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -15,9 +18,27 @@ function App() {
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    if (user?.id) {
+      axios.get(`${API_URL}/users/${user.id}`)
+        .then(res => {
+          // Hanya update jika role atau data lainnya berbeda untuk menghindari infinite loop
+          if (res.data.role !== user.role || res.data.username !== user.username || res.data.email !== user.email) {
+            const updatedUser = { ...user, ...res.data };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+          }
+        })
+        .catch(err => {
+          console.error("Gagal memperbarui info user:", err);
+        });
+    }
+  }, [user?.id]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('deleted_projects');
     setUser(null);
   };
 

@@ -33,6 +33,30 @@ const Task = {
     );
   },
 
+  updateSavedToGantt: async (taskId) => {
+  await db.query(
+    'UPDATE tasks SET saved_to_gantt = 1 WHERE id = ?',
+    [taskId]
+  );
+},
+
+updateDeadline: async (taskId, deadline) => {
+    await db.query(
+      'UPDATE tasks SET deadline = ? WHERE id = ?',
+      [deadline, taskId]
+    );
+  },
+
+  getAllDeadlines: async () => {
+    const [tasks] = await db.query(
+      `SELECT t.id, t.title, t.status, t.deadline, p.name as project_name
+       FROM tasks t
+       JOIN projects p ON t.project_id = p.id
+       WHERE t.deadline IS NOT NULL`
+    );
+    return tasks;
+  },
+
   addUserToTask: async (taskId, userId) => {
     await db.query('INSERT IGNORE INTO task_users (task_id, user_id) VALUES (?, ?)', [taskId, userId]);
   },

@@ -45,6 +45,59 @@ const taskController = {
       res.status(500).json({ error: error.message });
     }
   },
+  updateDeadline: async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const { deadline } = req.body;
+      await Task.updateDeadline(taskId, deadline);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  getAllDeadlines: async (req, res) => {
+    try {
+      const tasks = await Task.getAllDeadlines();
+      res.json(tasks);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  updateStatus: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      await Task.updateStatus(id, status);
+
+      if (status === 'Done') {
+        const emailService = require('../service/emailService');
+        const [tasks] = await db.query(
+          `SELECT t.title, p.name as project_name, u.email
+           FROM tasks t
+           JOIN projects p ON t.project_id = p.id
+           JOIN task_users tu ON t.id = tu.task_id
+           JOIN users u ON tu.user_id = u.id
+           WHERE t.id = ?`,
+          [id]
+        );
+        if (tasks.length > 0) {
+          const task = tasks[0];
+          await emailService.sendTaskDoneNotification({
+            toEmail: task.email,
+            taskTitle: task.title,
+            projectName: task.project_name,
+          });
+        }
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
 };
 
 module.exports = taskController;

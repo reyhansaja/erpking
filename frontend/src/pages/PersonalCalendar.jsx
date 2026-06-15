@@ -10,6 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-3531504
 
 export default function PersonalCalendar({ user }) {
   const [events, setEvents] = useState([]);
+  const [taskEvents, setTaskEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [newReminder, setNewReminder] = useState({ title: '', description: '' });
@@ -29,8 +30,29 @@ export default function PersonalCalendar({ user }) {
     }
   };
 
+  const fetchTaskDeadlines = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/tasks/all-deadlines`);
+    const formatted = res.data.map(task => ({
+      id: `task-${task.id}`,
+      title: `📋 ${task.title}`,
+      date: task.deadline ? task.deadline.split('T')[0] : null,
+      backgroundColor: task.status === 'Done' ? '#22c55e' : '#f59e0b',
+      borderColor: task.status === 'Done' ? '#16a34a' : '#d97706',
+      extendedProps: {
+        projectName: task.project_name,
+        type: 'task'
+      }
+    })).filter(e => e.date); // buang yang tidak ada deadline
+    setTaskEvents(formatted);
+  } catch (err) {
+    console.error('Gagal fetch task deadlines:', err);
+  }
+};
+
   useEffect(() => {
     fetchReminders();
+    fetchTaskDeadlines();
   }, [user.id]);
 
   const handleDateClick = (arg) => {
@@ -80,7 +102,7 @@ export default function PersonalCalendar({ user }) {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay'
           }}
-          events={events}
+            events={[...events, ...taskEvents]}
           dateClick={handleDateClick}
           height="100%"
           eventDisplay="block"

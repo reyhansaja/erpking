@@ -24,18 +24,18 @@ export default function ProjectsDashboard({ user }) {
   // Gunakan role asli dari user — bukan hardcoded
   const currentRole = activeUser?.role || 'USER';
 
- const fetchProjects = async () => {
+  const fetchProjects = async () => {
     try {
       setLoading(true);
       const userId = activeUser?.id;
       if (!userId) return; // Guard: jangan fetch jika userId belum ada
       const res = await axios.get(`${API_URL}/projects/user/${userId}`);
-      
+
       const deletedIds = JSON.parse(localStorage.getItem('deleted_projects') || '[]');
-      const activeProjects = res.data.filter(proj => 
+      const activeProjects = res.data.filter(proj =>
         !deletedIds.includes(proj.id) && proj.name !== "DELETED_MARKER"
       );
-      
+
       setProjects(activeProjects);
     } catch (error) {
       console.error("Gagal mengambil data proyek:", error);
@@ -89,18 +89,20 @@ export default function ProjectsDashboard({ user }) {
     setIsDeleteModalOpen(true);
   };
 
-  const confirmDeleteProject = () => {
+  const confirmDeleteProject = async () => {
     if (!projectToDelete) return;
-
-    const deletedIds = JSON.parse(localStorage.getItem('deleted_projects') || '[]');
-    if (!deletedIds.includes(projectToDelete.id)) {
-      deletedIds.push(projectToDelete.id);
-      localStorage.setItem('deleted_projects', JSON.stringify(deletedIds));
+    try {
+      await axios.delete(`${API_URL}/projects/${projectToDelete.id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setProjects(projects.filter(project => project.id !== projectToDelete.id));
+    } catch (err) {
+      console.error('Gagal menghapus project:', err);
+      alert('Gagal menghapus project. Silakan coba lagi.');
+    } finally {
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
     }
-    
-    setProjects(projects.filter(project => project.id !== projectToDelete.id));
-    setIsDeleteModalOpen(false);
-    setProjectToDelete(null);
   };
 
   if (loading) {
@@ -190,7 +192,7 @@ export default function ProjectsDashboard({ user }) {
             projects.map(project => (
               <Link to={`/project/${project.id}`} key={project.id} className="block group">
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all h-full flex flex-col relative">
-                  
+
                   {currentRole === 'SUPERADMIN' && (
                     <button
                       onClick={(e) => openDeleteModal(e, project)}
@@ -225,7 +227,7 @@ export default function ProjectsDashboard({ user }) {
       {/* COMPONENT POP-UP MODAL CUSTOM TAILWIND */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
+          <div
             className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsDeleteModalOpen(false)}
           ></div>

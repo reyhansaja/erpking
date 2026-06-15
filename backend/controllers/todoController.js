@@ -1,9 +1,11 @@
 const Todo = require('../models/todoModel');
 
 const todoController = {
-  getUserTodos: async (req, res) => {
+  getTaskTodos: async (req, res) => {
     try {
-      const todos = await Todo.getByUserId(req.params.userId);
+      const { taskId } = req.params;
+      const { userId } = req.query;
+      const todos = await Todo.getByTaskId(taskId, userId);
       res.json(todos);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -12,11 +14,11 @@ const todoController = {
 
   createTodo: async (req, res) => {
     try {
-      const { userId, title, priority } = req.body;
-      if (!userId || !title) {
-        return res.status(400).json({ error: 'userId and title are required' });
+      const { userId, taskId, projectId, title, priority } = req.body;
+      if (!userId || !taskId || !projectId || !title) {
+        return res.status(400).json({ error: 'userId, taskId, projectId, and title are required' });
       }
-      const todo = await Todo.create(userId, title, priority);
+      const todo = await Todo.create(userId, taskId, projectId, title, priority);
       res.json(todo);
     } catch (error) {
       res.status(500).json({ error: error.message });

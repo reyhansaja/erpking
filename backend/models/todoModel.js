@@ -1,18 +1,18 @@
 const db = require('../db');
 
 const Todo = {
-  getByUserId: async (userId) => {
+  getByTaskId: async (taskId, userId) => {
     const [rows] = await db.query(
-      'SELECT * FROM todos WHERE user_id = ? ORDER BY created_at DESC',
-      [userId]
+      'SELECT * FROM todos WHERE task_id = ? AND user_id = ? ORDER BY created_at DESC',
+      [taskId, userId]
     );
     return rows;
   },
 
-  create: async (userId, title, priority) => {
+  create: async (userId, taskId, projectId, title, priority) => {
     const [result] = await db.query(
-      'INSERT INTO todos (user_id, title, priority) VALUES (?, ?, ?)',
-      [userId, title, priority || 'medium']
+      'INSERT INTO todos (user_id, task_id, project_id, title, priority) VALUES (?, ?, ?, ?, ?)',
+      [userId, taskId, projectId, title, priority || 'medium']
     );
     const [rows] = await db.query('SELECT * FROM todos WHERE id = ?', [result.insertId]);
     return rows[0];

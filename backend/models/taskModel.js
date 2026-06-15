@@ -5,54 +5,49 @@ const Task = {
     const [tasks] = await db.query('SELECT * FROM tasks WHERE project_id = ?', [projectId]);
     for (let task of tasks) {
       const [assignees] = await db.query(
-        'SELECT u.id, u.username FROM users u JOIN task_users tu ON u.id = tu.user_id WHERE tu.task_id = ?',
+        'SELECT u.id, u.username, u.email FROM users u JOIN task_users tu ON u.id = tu.user_id WHERE tu.task_id = ?',
         [task.id]
       );
       task.assignees = assignees;
     }
     return tasks;
   },
-  create: async (projectId, title, description, status) => {
+
+  create: async (projectId, title, description, status, priority, deadline) => {
     const [result] = await db.query(
-      'INSERT INTO tasks (project_id, title, description, status) VALUES (?, ?, ?, ?)',
-      [projectId, title, description, status]
+      'INSERT INTO tasks (project_id, title, description, status, priority, deadline) VALUES (?, ?, ?, ?, ?, ?)',
+      [projectId, title, description, status, priority || 'medium', deadline || null]
     );
-    return { id: result.insertId, projectId, title, description, status };
+    const [rows] = await db.query('SELECT * FROM tasks WHERE id = ?', [result.insertId]);
+    return rows[0];
   },
+
   updateStatus: async (id, status) => {
     await db.query('UPDATE tasks SET status = ? WHERE id = ?', [status, id]);
   },
-  updateDetails: async (taskId, title, description) => {
-    await db.query('UPDATE tasks SET title = ?, description = ? WHERE id = ?', [title, description, taskId]);
+
+  updateDetails: async (taskId, title, description, priority, deadline) => {
+    await db.query(
+      'UPDATE tasks SET title = ?, description = ?, priority = ?, deadline = ? WHERE id = ?',
+      [title, description, priority, deadline || null, taskId]
+    );
   },
+
   addUserToTask: async (taskId, userId) => {
     await db.query('INSERT IGNORE INTO task_users (task_id, user_id) VALUES (?, ?)', [taskId, userId]);
   },
-  updateDeadline: async (taskId, deadline) => {
-    await db.query(
-      'UPDATE tasks SET deadline = ? WHERE id = ?',
-      [deadline, taskId]
-    );
+
+  removeAllAssignees: async (taskId) => {
+    await db.query('DELETE FROM task_users WHERE task_id = ?', [taskId]);
   },
 
-  getAllDeadlines: async () => {
-    const [tasks] = await db.query(
-      `SELECT t.id, t.title, t.status, t.deadline, p.name as project_name
-       FROM tasks t
-       JOIN projects p ON t.project_id = p.id
-       WHERE t.deadline IS NOT NULL`
-    );
-    return tasks;
-  },
-
-  getByProjectIdWithDeadline: async (projectId) => {
-    const [tasks] = await db.query(
-      'SELECT * FROM tasks WHERE project_id = ?',
+  getProjectMembers: async (projectId) => {
+    const [rows] = await db.query(
+      'SELECT u.id, u.username, u.email FROM users u JOIN project_users pu ON u.id = pu.user_id WHERE pu.project_id = ?',
       [projectId]
     );
-    return tasks;
-  },
-
+    return rows;
+  }
 };
 
 module.exports = Task;

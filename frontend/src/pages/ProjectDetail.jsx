@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, LayoutDashboard, Bug, Link as LinkIcon, MessageSquare } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Bug, Link as LinkIcon, MessageSquare, Layers } from 'lucide-react';
 import KanbanBoard from './KanbanBoard';
 import FeaturesBugs from './FeaturesBugs';
 import ProjectChat from './ProjectChat';
+import ProjectDashboard from './ProjectDashboard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
 export default function ProjectDetail({ user }) {
   const { id } = useParams();
   const [project, setProject] = useState(null);
-  const [activeTab, setActiveTab] = useState('kanban');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -52,13 +53,22 @@ export default function ProjectDetail({ user }) {
       <div className="px-8 border-b border-gray-200 bg-gray-50">
         <nav className="flex space-x-8">
           <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'dashboard'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            <LayoutDashboard size={18} /> Dashboard
+          </button>
+          <button
             onClick={() => setActiveTab('kanban')}
             className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'kanban'
                 ? 'border-indigo-600 text-indigo-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
-            <LayoutDashboard size={18} /> Kanban Board
+            <Layers size={18} /> Kanban Board
           </button>
           <button
             onClick={() => setActiveTab('bugs')}
@@ -83,6 +93,7 @@ export default function ProjectDetail({ user }) {
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto bg-gray-50/50">
+        {activeTab === 'dashboard' && <ProjectDashboard projectId={project.id} user={user} />}
         {activeTab === 'kanban' && <KanbanBoard projectId={project.id} user={user} />}
         {activeTab === 'bugs' && <FeaturesBugs projectId={project.id} user={user} />}
         {activeTab === 'chat' && <ProjectChat projectId={project.id} user={user} />}

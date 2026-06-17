@@ -156,6 +156,21 @@ const taskController = {
     }
   },
 
+  updateDeadline: async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const { deadline } = req.body;
+
+      // Pastikan di taskModel.js kamu punya method updateDeadline ya!
+      // Kalau pakai query langsung: await db.query('UPDATE tasks SET deadline = ? WHERE id = ?', [deadline, taskId]);
+      await Task.updateDeadline(taskId, deadline);
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   getAllDeadlines: async (req, res) => {
     try {
       const tasks = await Task.getAllDeadlines();

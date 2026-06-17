@@ -1,4 +1,5 @@
 const Task = require('../models/taskModel');
+const db = require('../db');
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
@@ -16,7 +17,6 @@ const sendAssignEmail = async (assigneeEmail, assigneeUsername, task, projectNam
   const deadlineText = task.deadline
     ? new Date(task.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'Tidak ada deadline';
-
   await transporter.sendMail({
     from: `"ERPKing" <${process.env.EMAIL_USER}>`,
     to: assigneeEmail,
@@ -42,6 +42,7 @@ const sendAssignEmail = async (assigneeEmail, assigneeUsername, task, projectNam
 };
 
 const taskController = {
+
   getProjectTasks: async (req, res) => {
     try {
       const tasks = await Task.getByProjectId(req.params.projectId);
@@ -64,10 +65,7 @@ const taskController = {
     try {
       const projectId = req.params.projectId;
       const { title, description, status = 'on_progress', priority = 'medium', deadline, assigneeIds = [], projectName = '' } = req.body;
-
       const newTask = await Task.create(projectId, title, description, status, priority, deadline);
-
-      // Assign anggota dan kirim email
       for (const assignee of assigneeIds) {
         await Task.addUserToTask(newTask.id, assignee.id);
         try {
@@ -76,15 +74,13 @@ const taskController = {
           console.error('Gagal kirim email ke', assignee.email, emailErr.message);
         }
       }
-
-      const [tasks] = await require('../db').query('SELECT * FROM tasks WHERE id = ?', [newTask.id]);
+      const [tasks] = await db.query('SELECT * FROM tasks WHERE id = ?', [newTask.id]);
       const task = tasks[0];
-      const [assignees] = await require('../db').query(
+      const [assignees] = await db.query(
         'SELECT u.id, u.username, u.email FROM users u JOIN task_users tu ON u.id = tu.user_id WHERE tu.task_id = ?',
         [task.id]
       );
       task.assignees = assignees;
-
       res.json(task);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -94,7 +90,12 @@ const taskController = {
   updateTaskUniversal: async (req, res) => {
     try {
       const taskId = req.params.id;
-      const { title, description, status, priority, deadline } = req.body;
+      const { title, description, status, priority, deadline, saved_to_gantt } = req.body;
+
+      if (saved_to_gantt) {
+        await Task.updateSavedToGantt(taskId);
+        return res.json({ success: true });
+      }
 
       if (status !== undefined && title === undefined) {
         await Task.updateStatus(taskId, status);
@@ -112,15 +113,68 @@ const taskController = {
     }
   },
 
-  deleteTask: async (req, res) => {
+  updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
-      await require('../db').query('DELETE FROM tasks WHERE id = ?', [id]);
+      const { status } = req.body;
+      await Task.updateStatus(id, status);
+      if (status === 'Done') {
+        try {
+          const [tasks] = await db.query(
+            `SELECT t.title, p.name as project_name, u.email, u.username
+             FROM tasks t
+             JOIN projects p ON t.project_id = p.id
+             JOIN task_users tu ON t.id = tu.task_id
+             JOIN users u ON tu.user_id = u.id
+             WHERE t.id = ?`,
+            [id]
+          );
+          if (tasks.length > 0) {
+            const task = tasks[0];
+            await transporter.sendMail({
+              from: `"ERPKu System" <${process.env.EMAIL_USER}>`,
+              to: task.email,
+              subject: `✅ Misi selesai: "${task.title}"`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 520px;">
+                  <h2 style="color:#1a6b3c;">Misi Diselesaikan ✅</h2>
+                  <p>Misi <strong>${task.title}</strong> pada proyek <strong>${task.project_name}</strong> telah selesai.</p>
+                  <div style="background:#f0fdf4; border-left:4px solid #22c55e; padding:12px 16px; border-radius:6px;">
+                    Progress: <strong>100% · Done</strong>
+                  </div>
+                </div>
+              `
+            });
+          }
+        } catch (emailErr) {
+          console.error('Gagal kirim email done:', emailErr.message);
+        }
+      }
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   },
+
+  getAllDeadlines: async (req, res) => {
+    try {
+      const tasks = await Task.getAllDeadlines();
+      res.json(tasks);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  deleteTask: async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.query('DELETE FROM tasks WHERE id = ?', [id]);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
 };
 
 module.exports = taskController;

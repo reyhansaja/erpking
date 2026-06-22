@@ -14,6 +14,9 @@ export default function ProjectDetail({ user }) {
   const { id } = useParams();
   const [project, setProject] = useState(null);
   const [activeTab, setActiveTab] = useState('kanban');
+  
+  // STATE BARU: Untuk nampung jumlah chat yang belum dibaca g!
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -26,6 +29,41 @@ export default function ProjectDetail({ user }) {
     };
     fetchProject();
   }, [id]);
+
+  // ==== EFEK BARU: Radar Pendeteksi Chat Masuk ====
+  useEffect(() => {
+    if (!id) return;
+    
+    const checkUnreadChats = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/projects/${id}/chats`);
+        const totalChatsInDB = res.data.length;
+        const storageKey = `chat_viewed_count_${id}`;
+
+        if (activeTab === 'chat') {
+          // Kalau lagi buka tab chat, reset notif dan simpan jumlah terbaru ke memori
+          localStorage.setItem(storageKey, totalChatsInDB.toString());
+          setUnreadCount(0);
+        } else {
+          // Kalau buka tab lain, bandingkan jumlah chat di DB dengan memori terakhir
+          const viewedChats = parseInt(localStorage.getItem(storageKey) || '0');
+          if (totalChatsInDB > viewedChats) {
+            setUnreadCount(totalChatsInDB - viewedChats);
+          }
+        }
+      } catch (err) {
+        console.error("Gagal ngecek notif chat g:", err);
+      }
+    };
+
+    // Panggil sekali pas komponen dimuat
+    checkUnreadChats();
+    
+    // Polling: Cek diam-diam tiap 5 detik
+    const interval = setInterval(checkUnreadChats, 5000);
+    return () => clearInterval(interval);
+  }, [id, activeTab]); 
+  // =================================================
 
   if (!project) return <div className="p-8 text-center text-gray-500">Loading project...</div>;
 
@@ -89,6 +127,8 @@ export default function ProjectDetail({ user }) {
           >
             📊 Gantt Chart
           </button>
+          
+          {/* TAB CHAT DENGAN FITUR RED DOT g! */}
           <button
             onClick={() => setActiveTab('chat')}
             className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'chat'
@@ -96,7 +136,15 @@ export default function ProjectDetail({ user }) {
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
-            <MessageSquare size={18} /> Project Chat
+            <div className="flex items-center gap-1.5">
+              <MessageSquare size={18} /> 
+              <span>Project Chat</span>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse shadow-sm">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
           </button>
         </nav>
       </div>
@@ -104,7 +152,7 @@ export default function ProjectDetail({ user }) {
       {/* Content Area */}
       <div className="flex-1 overflow-auto bg-gray-50/50">
         {activeTab === 'dashboard' && <ProjectDashboard projectId={project.id} user={user} />}
-        {activeTab === 'kanban' && <KanbanBoard projectId={project.id} user={user} />}
+        {activeTab === 'kanban' && <KanbanBoard projectId={project.id} projectName={project.name} user={user} />}
         {activeTab === 'bugs' && <FeaturesBugs projectId={project.id} user={user} />}
         {activeTab === 'gantt' && <GanttChart projectId={project.id} user={user} />}
         {activeTab === 'chat' && <ProjectChat projectId={project.id} user={user} />}

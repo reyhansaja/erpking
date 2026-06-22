@@ -26,6 +26,17 @@ const User = {
   },
   updateRole: async (userId, role) => {
     await db.query('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
+  },
+  getByUsername: async (username) => {
+    const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    return rows[0];
+  },
+  createWithRole: async (username, email, password_hash, role) => {
+    const [result] = await db.query(
+      'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [username, email, password_hash, role]
+    );
+    return { id: result.insertId, username, email, role };
   }
 };
 

@@ -62,6 +62,61 @@ const userController = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
+  },
+  loginSSO: async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ error: 'Token is required' });
+
+      // Verify the token using shared JWT_SECRET
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      let user = null;
+      if (decoded.email) {
+        user = await User.getByEmail(decoded.email);
+      }
+      
+      if (!user && decoded.username) {
+        user = await User.getByUsername(decoded.username);
+      }
+
+      // Auto-Provisioning: create user if not exists
+      if (!user) {
+        const defaultPasswordHash = await bcrypt.hash('infimech_sso_default_pass_123', 10);
+        const username = decoded.username || 'sso_user_' + Math.floor(Math.random() * 10000);
+        const email = decoded.email || `${username}@infimech-tech.com`;
+        
+        // Map Infimech-ERP roles to ERPKing roles (SUPERADMIN, ADMIN, USER)
+        let role = 'USER';
+        if (decoded.roleName === 'Superadmin') {
+          role = 'SUPERADMIN';
+        } else if (decoded.roleName === 'Admin' || decoded.roleName === 'Manajemen') {
+          role = 'ADMIN';
+        }
+
+        user = await User.createWithRole(username, email, defaultPasswordHash, role);
+      }
+
+      // Generate local localToken for ERPKing
+      const localToken = jwt.sign(
+        { id: user.id, username: user.username, role: user.role },
+        JWT_SECRET,
+        { expiresIn: '1d' }
+      );
+
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role || 'USER'
+        },
+        token: localToken
+      });
+    } catch (error) {
+      console.error("SSO Verification Error:", error);
+      res.status(401).json({ error: 'SSO Verification failed: ' + error.message });
+    }
   }
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,6 +11,27 @@ export default function Login({ setUser }) {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ssoToken = params.get('token');
+    if (ssoToken) {
+      axios.post(`${API_URL}/users/sso`, { token: ssoToken })
+        .then(res => {
+          setUser(res.data.user);
+          localStorage.setItem('token', res.data.token);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+          
+          // Redirect to the original path without the token parameter, or to home page
+          const redirectPath = window.location.pathname !== '/login' ? window.location.pathname : '/';
+          navigate(redirectPath);
+        })
+        .catch(err => {
+          console.error("SSO Login failed:", err);
+          setError(err.response?.data?.error || 'SSO Login failed');
+        });
+    }
+  }, [setUser, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

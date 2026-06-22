@@ -17,12 +17,39 @@ function App() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
+
+  // === HANDLE SSO TOKEN FROM URL ===
+  // This runs first, even before checking if user is already logged in
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ssoToken = params.get('token');
+    if (!ssoToken) return;
+
+    setSsoLoading(true);
+
+    // Remove the token from URL immediately for security/cleanliness
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+
+    axios.post(`${API_URL}/users/sso`, { token: ssoToken })
+      .then(res => {
+        setUser(res.data.user);
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+      })
+      .catch(err => {
+        console.error("SSO Login failed:", err.response?.data?.error || err.message);
+      })
+      .finally(() => {
+        setSsoLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
     if (user?.id) {
       axios.get(`${API_URL}/users/${user.id}`)
         .then(res => {
-          // Hanya update jika role atau data lainnya berbeda untuk menghindari infinite loop
           if (res.data.role !== user.role || res.data.username !== user.username || res.data.email !== user.email) {
             const updatedUser = { ...user, ...res.data };
             setUser(updatedUser);
@@ -43,6 +70,17 @@ function App() {
   };
 
   const closeSidebar = () => setSidebarOpen(false);
+
+  if (ssoLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f9fafb' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4f46e5', marginBottom: '8px' }}>ERPKu</div>
+          <div style={{ color: '#6b7280' }}>Logging you in automatically...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

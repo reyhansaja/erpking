@@ -3,7 +3,7 @@ const db = require('../db');
 const Chat = {
   getByProjectId: async (projectId) => {
     const [rows] = await db.query(`
-      SELECT c.*, u.username 
+      SELECT c.*, u.username, u.role 
       FROM chats c 
       JOIN users u ON c.user_id = u.id 
       WHERE c.project_id = ? 
@@ -18,7 +18,7 @@ const Chat = {
     );
     
     const [rows] = await db.query(`
-      SELECT c.*, u.username 
+      SELECT c.*, u.username, u.role 
       FROM chats c 
       JOIN users u ON c.user_id = u.id 
       WHERE c.id = ? 

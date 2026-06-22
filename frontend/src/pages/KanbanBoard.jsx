@@ -13,16 +13,21 @@ const PRIORITY_CONFIG = {
 export default function KanbanBoard({ projectId, projectName, user }) {
   const [tasks, setTasks] = useState([]);
   const [members, setMembers] = useState([]);
+  
+  // State Create Task
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskDeadline, setNewTaskDeadline] = useState('');
   const [newTaskAssignees, setNewTaskAssignees] = useState([]);
+  
+  // State Edit Task
   const [activeTask, setActiveTask] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editPriority, setEditPriority] = useState('medium');
   const [editDeadline, setEditDeadline] = useState('');
+  const [editAssignees, setEditAssignees] = useState([]); // <-- STATE BARU UNTUK EDIT PJ g!
 
   const isSuperAdmin = user?.role === 'SUPERADMIN';
 
@@ -49,8 +54,18 @@ export default function KanbanBoard({ projectId, projectName, user }) {
     fetchMembers();
   }, [projectId]);
 
+  // Fungsi toggle anggota saat bikin task
   const toggleAssignee = (member) => {
     setNewTaskAssignees(prev =>
+      prev.find(a => a.id === member.id)
+        ? prev.filter(a => a.id !== member.id)
+        : [...prev, member]
+    );
+  };
+
+  // <-- FUNGSI BARU: Toggle anggota saat edit task g! -->
+  const toggleEditAssignee = (member) => {
+    setEditAssignees(prev =>
       prev.find(a => a.id === member.id)
         ? prev.filter(a => a.id !== member.id)
         : [...prev, member]
@@ -91,18 +106,22 @@ export default function KanbanBoard({ projectId, projectName, user }) {
 
   const handleUpdateTask = async (e) => {
     e.preventDefault();
+    
+    // Optimistic UI Update (Biar layar instan berubah termasuk PJ-nya)
     setTasks(tasks.map(t =>
       t.id === activeTask.id
-        ? { ...t, title: editTitle, description: editDescription, priority: editPriority, deadline: editDeadline }
+        ? { ...t, title: editTitle, description: editDescription, priority: editPriority, deadline: editDeadline, assignees: editAssignees }
         : t
     ));
     setActiveTask(null);
+
     try {
       await axios.put(`${API_URL}/tasks/${activeTask.id}`, {
         title: editTitle,
         description: editDescription,
         priority: editPriority,
         deadline: editDeadline || null,
+        assigneeIds: editAssignees, // <-- KIRIM PJ BARU KE BACKEND g!
       });
     } catch (error) {
       console.error(error);
@@ -129,6 +148,7 @@ export default function KanbanBoard({ projectId, projectName, user }) {
     setEditDescription(task.description || '');
     setEditPriority(task.priority || 'medium');
     setEditDeadline(task.deadline ? task.deadline.split('T')[0] : '');
+    setEditAssignees(task.assignees || []); // <-- ISI MODAL DENGAN PJ SAAT INI g!
   };
 
   const columns = ['on_progress', 'hold', 'done'];
@@ -279,7 +299,7 @@ export default function KanbanBoard({ projectId, projectName, user }) {
       {/* Modal Edit Task */}
       {activeTask && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-xl max-w-md w-full overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-xl max-w-md w-full overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <Edit3 size={18} className="text-indigo-600" /> Detail & Edit Tugas
@@ -289,7 +309,7 @@ export default function KanbanBoard({ projectId, projectName, user }) {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateTask} className="p-6 space-y-4">
+            <form onSubmit={handleUpdateTask} className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Judul</label>
                 <input
@@ -323,6 +343,32 @@ export default function KanbanBoard({ projectId, projectName, user }) {
                   />
                 </div>
               </div>
+
+              {/* FITUR BARU: GANTI ASSIGNEE / PJ (Khusus Superadmin) g! */}
+              {isSuperAdmin && (
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <UserPlus size={13} /> Ganti Assignee (PJ)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {members.map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleEditAssignee(m)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                          editAssignees.find(a => a.id === m.id)
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-white'
+                        }`}
+                      >
+                        {m.username}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Deskripsi</label>
                 <textarea
@@ -346,7 +392,7 @@ export default function KanbanBoard({ projectId, projectName, user }) {
                   <button type="button" onClick={() => setActiveTask(null)} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm">
                     Batal
                   </button>
-                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 hover:bg-indigo-700 transition text-sm font-semibold">
+                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 hover:bg-indigo-700 transition text-sm font-semibold shadow-sm">
                     <Save size={16} /> Simpan
                   </button>
                 </div>

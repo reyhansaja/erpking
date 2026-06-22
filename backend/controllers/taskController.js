@@ -32,7 +32,7 @@ const sendAssignEmail = async (assigneeEmail, assigneeUsername, task, projectNam
             <tr><td style="padding: 6px 0; color: #6b7280;">Deskripsi</td><td style="padding: 6px 0; color: #374151;">${task.description || '-'}</td></tr>
             <tr><td style="padding: 6px 0; color: #6b7280;">Prioritas</td><td style="padding: 6px 0; color: #374151;">${priorityLabel[task.priority] || 'Sedang'}</td></tr>
             <tr><td style="padding: 6px 0; color: #6b7280;">Deadline</td><td style="padding: 6px 0; color: #374151;">${deadlineText}</td></tr>
-            <tr><td style="padding: 6px 0; color: #6b7280;">Status</td><td style="padding: 6px 0; color: #374151;">${task.status}</td></tr>
+            <tr><td style="padding: 6px 0; color: #6b7280;">Status</td><td style="padding: 6px 0; color: #374151;">${task.status || 'On Progress'}</td></tr>
           </table>
         </div>
         <p style="color: #6b7280; font-size: 13px;">Silakan login ke ERPKing untuk melihat detail selengkapnya.</p>
@@ -87,10 +87,12 @@ const taskController = {
     }
   },
 
+  // ===== INI YANG DIBEDAH g! (Tambah logika Oper PJ) =====
   updateTaskUniversal: async (req, res) => {
     try {
       const taskId = req.params.id;
-      const { title, description, status, priority, deadline, saved_to_gantt } = req.body;
+      // Tambahin penerima assigneeIds dari frontend
+      const { title, description, status, priority, deadline, saved_to_gantt, assigneeIds } = req.body;
 
       if (saved_to_gantt) {
         await Task.updateSavedToGantt(taskId);
@@ -103,7 +105,23 @@ const taskController = {
       }
 
       if (title !== undefined || description !== undefined) {
+        // 1. Update teks dan detailnya dulu
         await Task.updateDetails(taskId, title, description, priority, deadline);
+        
+        // 2. LOGIKA OPER PJ (GANTI ASSIGNEE) g!
+        // Cek kalau frontend ngirim data assigneeIds (bukan undefined)
+        if (assigneeIds !== undefined) {
+          // Sapu bersih PJ lama
+          await Task.removeAllAssignees(taskId);
+          
+          // Masukin PJ baru satu-satu
+          for (const assignee of assigneeIds) {
+            await Task.addUserToTask(taskId, assignee.id);
+            // Opsional: Kalau kamu mau email notifikasi juga dikirim pas ada orang baru ditambahkan saat edit,
+            // kamu bisa panggil fungsi sendAssignEmail() di sini. Sementara ini G skip biar inbox gak spam.
+          }
+        }
+        
         return res.json({ success: true });
       }
 
@@ -118,7 +136,7 @@ const taskController = {
       const { id } = req.params;
       const { status } = req.body;
       await Task.updateStatus(id, status);
-      if (status === 'Done') {
+      if (status === 'done') { // Sengaja G kecilin 'done' biar match sama value dropdown kolom g
         try {
           const [tasks] = await db.query(
             `SELECT t.title, p.name as project_name, u.email, u.username
@@ -160,11 +178,7 @@ const taskController = {
     try {
       const { taskId } = req.params;
       const { deadline } = req.body;
-
-      // Pastikan di taskModel.js kamu punya method updateDeadline ya!
-      // Kalau pakai query langsung: await db.query('UPDATE tasks SET deadline = ? WHERE id = ?', [deadline, taskId]);
       await Task.updateDeadline(taskId, deadline);
-
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });

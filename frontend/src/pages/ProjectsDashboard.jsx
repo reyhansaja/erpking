@@ -2,34 +2,50 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Folder, Plus, Link as LinkIcon, Trash, AlertTriangle } from 'lucide-react';
+import { Folder, Plus, Link as LinkIcon, Trash, AlertTriangle, ChevronDown, FolderPlus, ArrowLeft } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
 export default function ProjectsDashboard({ user }) {
+  // STATE DATA
   const [projects, setProjects] = useState([]);
+  const [folders, setFolders] = useState([]);
+  
+  // STATE INPUT FORM
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
   const [joinToken, setJoinToken] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  
+  // STATE UI CONTROLS
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState(null); 
+  const [dragOverFolderId, setDragOverFolderId] = useState(null); 
+  const [loading, setLoading] = useState(true);
+
+  // STATE MODAL
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   const localUserData = JSON.parse(localStorage.getItem('user'));
   const activeUser = user || localUserData;
   const currentRole = activeUser?.role || 'USER';
 
-  const fetchProjects = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       const userId = activeUser?.id;
       if (!userId) return;
-      const res = await axios.get(`${API_URL}/projects/user/${userId}`);
+
+      // 1. Fetch Projects & Tasks untuk Pie Chart
+      const resProj = await axios.get(`${API_URL}/projects/user/${userId}`);
       const deletedIds = JSON.parse(localStorage.getItem('deleted_projects') || '[]');
-      const activeProjects = res.data.filter(proj =>
+      const activeProjects = resProj.data.filter(proj =>
         !deletedIds.includes(proj.id) && proj.name !== "DELETED_MARKER"
       );
+
       const projectsWithTasks = await Promise.all(
         activeProjects.map(async (proj) => {
           try {
@@ -41,6 +57,14 @@ export default function ProjectsDashboard({ user }) {
         })
       );
       setProjects(projectsWithTasks);
+
+      // 2. Fetch Folders
+      try {
+        const resFolders = await axios.get(`${API_URL}/folders/user/${userId}`);
+        setFolders(resFolders.data);
+      } catch (err) {
+        console.warn("API Folders belum merespon g:", err);
+      }
     } catch (error) {
       console.error("Gagal mengambil data proyek:", error);
     } finally {
@@ -49,22 +73,41 @@ export default function ProjectsDashboard({ user }) {
   };
 
   useEffect(() => {
-    if (activeUser?.id) {
-      fetchProjects();
-    } else {
-      setLoading(false);
-    }
+    if (activeUser?.id) fetchData();
+    else setLoading(false);
   }, [activeUser?.id]);
 
-  const handleCreate = async (e) => {
+  // HANDLERS FOR CREATION & JOIN
+  const handleCreateProject = async (e) => {
     e.preventDefault();
     if (!newProjectName.trim() || !activeUser?.id) return;
     try {
-      await axios.post(`${API_URL}/projects`, { name: newProjectName, description: newProjectDesc, userId: activeUser.id });
+      await axios.post(`${API_URL}/projects`, { 
+        name: newProjectName, 
+        description: newProjectDesc, 
+        userId: activeUser.id,
+        folderId: currentFolder ? currentFolder.id : null 
+      });
       setNewProjectName('');
       setNewProjectDesc('');
-      setIsCreating(false);
-      fetchProjects();
+      setIsCreatingProject(false);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleCreateFolder = async (e) => {
+    e.preventDefault();
+    if (!newFolderName.trim() || !activeUser?.id) return;
+    try {
+      await axios.post(`${API_URL}/folders`, { 
+        name: newFolderName, 
+        userId: activeUser.id 
+      });
+      setNewFolderName('');
+      setIsCreatingFolder(false);
+      fetchData();
     } catch (error) {
       console.error(error);
     }
@@ -76,13 +119,47 @@ export default function ProjectsDashboard({ user }) {
     try {
       await axios.post(`${API_URL}/projects/join/${joinToken}`, { userId: activeUser.id });
       setJoinToken('');
-      fetchProjects();
+      fetchData();
     } catch (error) {
       console.error(error);
       alert('Failed to join project. Invalid token?');
     }
   };
 
+  // DRAG AND DROP HANDLERS
+  const onDragStart = (e, projectId) => {
+    e.dataTransfer.setData('projectId', projectId);
+  };
+
+  const onDragOver = (e, folderId) => {
+    e.preventDefault();
+    setDragOverFolderId(folderId);
+  };
+
+  const onDragLeave = () => {
+    setDragOverFolderId(null);
+  };
+
+  const onDrop = async (e, folderId) => {
+    e.preventDefault();
+    setDragOverFolderId(null);
+    const draggedProjectId = e.dataTransfer.getData('projectId');
+    if (!draggedProjectId) return;
+
+    // Optimistic UI
+    setProjects(prev => prev.map(p => 
+      p.id.toString() === draggedProjectId ? { ...p, folder_id: folderId } : p
+    ));
+
+    try {
+      await axios.put(`${API_URL}/projects/${draggedProjectId}/move`, { folderId });
+    } catch (error) {
+      console.error("Gagal mindahin project g:", error);
+      fetchData(); // Rollback jika error
+    }
+  };
+
+  // DELETE HANDLERS
   const openDeleteModal = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
@@ -106,6 +183,11 @@ export default function ProjectsDashboard({ user }) {
     }
   };
 
+  // Filter project berdasarkan folder yang sedang dibuka
+  const displayedProjects = projects.filter(p => 
+    currentFolder ? p.folder_id === currentFolder.id : !p.folder_id
+  );
+
   if (loading) {
     return (
       <div className="p-8 max-w-6xl mx-auto flex flex-col items-center justify-center min-h-[300px] gap-4">
@@ -116,37 +198,91 @@ export default function ProjectsDashboard({ user }) {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto relative">
+    <div className="p-8 max-w-6xl mx-auto relative" onClick={() => setIsDropdownOpen(false)}>
+      
+      {/* HEADER */}
       <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Your Workspaces</h2>
-          <p className="text-gray-500 mt-1">
-            Manage your workspaces. Status Role Kamu: <span className="font-bold text-indigo-600 uppercase">{currentRole}</span>
-          </p>
+          {currentFolder ? (
+            <div className="flex items-center gap-3">
+              <button onClick={() => setCurrentFolder(null)} className="p-2 hover:bg-gray-100 rounded-full transition">
+                <ArrowLeft size={24} className="text-gray-600" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                  <Folder className="text-indigo-600" size={28} /> {currentFolder.name}
+                </h2>
+                <p className="text-gray-500 mt-1">Isi folder workspace kamu g.</p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-3xl font-bold text-gray-800">Your Workspaces</h2>
+              <p className="text-gray-500 mt-1">
+                Manage your workspaces. Status Role Kamu: <span className="font-bold text-indigo-600 uppercase">{currentRole}</span>
+              </p>
+            </div>
+          )}
         </div>
+
         {currentRole !== 'USER' && (
-          <button
-            onClick={() => setIsCreating(!isCreating)}
-            className="bg-indigo-600 text-white px-4 py-2 text-sm rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-medium shrink-0"
-          >
-            <Plus size={18} /> New Project
-          </button>
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }}
+              className="bg-indigo-600 text-white px-5 py-2.5 text-sm rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-semibold shrink-0"
+            >
+              <Plus size={18} /> New <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}/>
+            </button>
+            
+            {/* DROPDOWN MENU */}
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-20 py-2">
+                <button 
+                  onClick={() => { setIsCreatingProject(true); setIsCreatingFolder(false); setIsDropdownOpen(false); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                >
+                  <Plus size={16} /> New Project
+                </button>
+                {!currentFolder && (
+                  <button 
+                    onClick={() => { setIsCreatingFolder(true); setIsCreatingProject(false); setIsDropdownOpen(false); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                  >
+                    <FolderPlus size={16} /> New Folder
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+        
+        {/* SIDEBAR FORMS */}
         <div className="lg:col-span-1 space-y-6">
-          {isCreating && currentRole !== 'USER' && (
+          {isCreatingFolder && currentRole !== 'USER' && !currentFolder && (
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><Folder size={18} className="text-indigo-600" /> Create Project</h3>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <input type="text" placeholder="Project Name" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} required className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                <textarea placeholder="Description (Optional)" value={newProjectDesc} onChange={(e) => setNewProjectDesc(e.target.value)} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px]" />
-                <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition">Create</button>
+              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><FolderPlus size={18} className="text-indigo-600" /> Create Folder</h3>
+              <form onSubmit={handleCreateFolder} className="space-y-4">
+                <input type="text" placeholder="Folder Name" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} required className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition">Create Folder</button>
               </form>
             </div>
           )}
-          {currentRole !== 'USER' && (
+
+          {isCreatingProject && currentRole !== 'USER' && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><Folder size={18} className="text-indigo-600" /> Create Project</h3>
+              <form onSubmit={handleCreateProject} className="space-y-4">
+                <input type="text" placeholder="Project Name" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} required className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <textarea placeholder="Description (Optional)" value={newProjectDesc} onChange={(e) => setNewProjectDesc(e.target.value)} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px]" />
+                <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition">Create {currentFolder ? 'in Folder' : ''}</button>
+              </form>
+            </div>
+          )}
+
+          {currentRole !== 'USER' && !currentFolder && (
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
               <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><LinkIcon size={18} className="text-indigo-600" /> Join Project</h3>
               <form onSubmit={handleJoin} className="flex flex-col gap-2">
@@ -157,16 +293,37 @@ export default function ProjectsDashboard({ user }) {
           )}
         </div>
 
+        {/* LIST FOLDERS & PROJECTS */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {projects.length === 0 ? (
-            <div className="sm:col-span-2 bg-white border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center text-gray-500">
-              You are not a member of any projects yet.
+          
+          {/* Render Folders */}
+          {!currentFolder && folders.map(folder => (
+            <div 
+              key={`folder-${folder.id}`} 
+              onClick={() => setCurrentFolder(folder)}
+              onDragOver={(e) => onDragOver(e, folder.id)}
+              onDragLeave={onDragLeave}
+              onDrop={(e) => onDrop(e, folder.id)}
+              className={`bg-indigo-50 cursor-pointer p-6 rounded-2xl border-2 transition-all h-full flex flex-col justify-center items-center shadow-sm group hover:bg-indigo-100 
+                ${dragOverFolderId === folder.id ? 'border-indigo-500 scale-105' : 'border-indigo-100 border-dashed'}`}
+            >
+              <Folder size={48} className="text-indigo-400 mb-3 group-hover:scale-110 transition-transform" />
+              <h3 className="text-lg font-bold text-indigo-900">{folder.name}</h3>
+              <p className="text-xs text-indigo-600/70 mt-1 font-medium bg-white px-3 py-1 rounded-full shadow-sm">Buka Folder / Drop Project ke Sini</p>
+            </div>
+          ))}
+
+          {/* Render Projects */}
+          {displayedProjects.length === 0 && folders.length === 0 ? (
+            <div className="sm:col-span-2 bg-white border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center text-gray-500 h-max">
+              Kosong. Belum ada project atau folder di sini.
             </div>
           ) : (
-            projects.map(project => {
-              const done = project.tasks?.filter(t => t.status === 'done').length || 0;
-              const onProgress = project.tasks?.filter(t => t.status === 'on_progress').length || 0;
-              const hold = project.tasks?.filter(t => t.status === 'hold').length || 0;
+            displayedProjects.map(project => {
+              // DATA PIE CHART
+              const done = project.tasks?.filter(t => t.status === 'done' || t.status === 'Done').length || 0;
+              const onProgress = project.tasks?.filter(t => t.status === 'on_progress' || t.status === 'On Progress').length || 0;
+              const hold = project.tasks?.filter(t => t.status === 'hold' || t.status === 'Hold').length || 0;
               const total = project.tasks?.length || 0;
               const chartData = [
                 { name: 'Done', value: done, color: '#10b981' },
@@ -175,54 +332,64 @@ export default function ProjectsDashboard({ user }) {
               ].filter(d => d.value > 0);
 
               return (
-                <Link to={`/project/${project.id}`} key={project.id} className="block group">
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all h-full flex flex-col relative">
+                <div 
+                  key={project.id} 
+                  draggable 
+                  onDragStart={(e) => onDragStart(e, project.id)}
+                  className="block group cursor-grab active:cursor-grabbing relative h-full"
+                >
+                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all h-full flex flex-col relative">
+                    
                     {currentRole === 'SUPERADMIN' && (
                       <button onClick={(e) => openDeleteModal(e, project)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition-colors z-10" title="Delete Project">
                         <Trash size={18} />
                       </button>
                     )}
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        <Folder size={24} />
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">{project.name}</h3>
-                    <p className="text-gray-500 text-sm flex-1 line-clamp-2">{project.description || 'No description provided.'}</p>
-
-                    {/* Mini Pie Chart */}
-                    {total > 0 && (
-                      <div className="mt-4 flex items-center gap-4">
-                        <ResponsiveContainer width={80} height={80}>
-                          <PieChart>
-                            <Pie data={chartData} dataKey="value" cx="50%" cy="50%" innerRadius={22} outerRadius={36} strokeWidth={0}>
-                              {chartData.map((entry, index) => (
-                                <Cell key={index} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => [`${value} tasks`]} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex flex-col gap-1 text-xs text-gray-500">
-                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>Done: {done}/{total}</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>On Progress: {onProgress}</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>Hold: {hold}</span>
+                    
+                    <Link to={`/project/${project.id}`} className="flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                          <Folder size={24} />
                         </div>
                       </div>
-                    )}
+                      <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-indigo-700 transition-colors">{project.name}</h3>
+                      <p className="text-gray-500 text-sm flex-1 line-clamp-2">{project.description || 'No description provided.'}</p>
 
-                    <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center text-xs font-medium text-gray-400">
-                      <span>Joined recently</span>
-                      <span className="flex items-center gap-1 text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">Open Project &rarr;</span>
-                    </div>
+                      {/* MINI PIE CHART */}
+                      {total > 0 && (
+                        <div className="mt-4 flex items-center gap-4">
+                          <ResponsiveContainer width={80} height={80}>
+                            <PieChart>
+                              <Pie data={chartData} dataKey="value" cx="50%" cy="50%" innerRadius={22} outerRadius={36} strokeWidth={0}>
+                                {chartData.map((entry, index) => (
+                                  <Cell key={index} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip formatter={(value) => [`${value} tasks`]} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="flex flex-col gap-1 text-xs text-gray-500">
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>Done: {done}/{total}</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>On Progress: {onProgress}</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>Hold: {hold}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center text-xs font-medium text-gray-400">
+                        <span>Drag to Folder / Click to Open</span>
+                        <span className="flex items-center gap-1 text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">Open &rarr;</span>
+                      </div>
+                    </Link>
                   </div>
-                </Link>
+                </div>
               );
             })
           )}
         </div>
       </div>
 
+      {/* MODAL HAPUS */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsDeleteModalOpen(false)}></div>

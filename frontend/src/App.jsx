@@ -75,7 +75,7 @@ function App() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f9fafb' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4f46e5', marginBottom: '8px' }}>ERPKu</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4f46e5', marginBottom: '8px' }}>ERPKing</div>
           <div style={{ color: '#6b7280' }}>Logging you in automatically...</div>
         </div>
       </div>
@@ -128,7 +128,7 @@ function App() {
           </button>
 
           <div className="p-6 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-indigo-600 tracking-tight">ERPKu</h1>
+            <h1 className="text-2xl font-bold text-indigo-600 tracking-tight">ERPKing</h1>
             <p className="text-sm text-gray-500 mt-1">Hello, {user.username}</p>
           </div>
 

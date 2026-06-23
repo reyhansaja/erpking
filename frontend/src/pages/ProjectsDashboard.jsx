@@ -1,3 +1,4 @@
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
@@ -28,7 +29,7 @@ export default function ProjectsDashboard({ user }) {
     try {
       setLoading(true);
       const userId = activeUser?.id;
-      if (!userId) return; // Guard: jangan fetch jika userId belum ada
+      if (!userId) return;
       const res = await axios.get(`${API_URL}/projects/user/${userId}`);
 
       const deletedIds = JSON.parse(localStorage.getItem('deleted_projects') || '[]');
@@ -36,7 +37,19 @@ export default function ProjectsDashboard({ user }) {
         !deletedIds.includes(proj.id) && proj.name !== "DELETED_MARKER"
       );
 
-      setProjects(activeProjects);
+      // Fetch tasks untuk setiap project
+      const projectsWithTasks = await Promise.all(
+        activeProjects.map(async (proj) => {
+          try {
+            const taskRes = await axios.get(`${API_URL}/projects/${proj.id}/tasks`);
+            return { ...proj, tasks: taskRes.data };
+          } catch {
+            return { ...proj, tasks: [] };
+          }
+        })
+      );
+
+      setProjects(projectsWithTasks);
     } catch (error) {
       console.error("Gagal mengambil data proyek:", error);
     } finally {
@@ -210,6 +223,38 @@ export default function ProjectsDashboard({ user }) {
                   </div>
                   <h3 className="text-xl font-bold text-gray-800 mb-2">{project.name}</h3>
                   <p className="text-gray-500 text-sm flex-1 line-clamp-2">{project.description || 'No description provided.'}</p>
+                  {/* Mini Pie Chart */}
+                  {project.tasks && project.tasks.length > 0 && (() => {
+                    const done = project.tasks.filter(t => t.status === 'done').length;
+                    const onProgress = project.tasks.filter(t => t.status === 'on_progress').length;
+                    const hold = project.tasks.filter(t => t.status === 'hold').length;
+                    const total = project.tasks.length;
+                    const chartData = [
+                      { name: 'Done', value: done, color: '#10b981' },
+                      { name: 'On Progress', value: onProgress, color: '#6366f1' },
+                      { name: 'Hold', value: hold, color: '#f59e0b' },
+                    ].filter(d => d.value > 0);
+
+                    return (
+                      <div className="mt-4 flex items-center gap-4">
+                        <ResponsiveContainer width={80} height={80}>
+                          <PieChart>
+                            <Pie data={chartData} dataKey="value" cx="50%" cy="50%" innerRadius={22} outerRadius={36} strokeWidth={0}>
+                              {chartData.map((entry, index) => (
+                                <Cell key={index} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value) => [`${value} tasks`]} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex flex-col gap-1 text-xs text-gray-500">
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>Done: {done}/{total}</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>On Progress: {onProgress}</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>Hold: {hold}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center text-xs font-medium text-gray-400">
                     <span>Joined recently</span>

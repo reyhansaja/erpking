@@ -11,6 +11,11 @@ const bugNoteRoutes = require('./routes/bugNoteRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const todoRoutes = require('./routes/todoRoutes');
 
+// === TAMBAHAN CONTROLLER BARU KITA g! ===
+const folderController = require('./controllers/folderController');
+const projectController = require('./controllers/projectController');
+// ========================================
+
 const app = express();
 
 // ==== CORS: gunakan FRONTEND_URL jika diset, fallback ke wildcard untuk dev
@@ -48,6 +53,12 @@ io.on('connection', (socket) => {
 });
 
 app.set('io', io);
+
+// === TAMBAHAN ROUTE UNTUK FOLDER & DRAG-AND-DROP ===
+app.get('/api/folders/user/:userId', folderController.getUserFolders);
+app.post('/api/folders', folderController.createFolder);
+app.put('/api/projects/:id/move', projectController.updateProjectFolder);
+// ===================================================
 
 app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);

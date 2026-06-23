@@ -1,5 +1,5 @@
-// Ganti baris import Project lamamu menjadi nama file aslinya g:
-const Project = require('../models/projectModel');const db = require('../db'); // Mengimpor koneksi database asli erp kamu
+const Project = require('../models/projectModel');
+const db = require('../db'); 
 
 module.exports = {
   getUserProjects: async (req, res) => {
@@ -13,11 +13,33 @@ module.exports = {
 
   createProject: async (req, res) => {
     try {
-      const { name, description, userId } = req.body;
+      // Frontend sekarang mengirimkan folderId juga g!
+      const { name, description, userId, folderId } = req.body;
+      
+      // Bikin project lewat model seperti biasa
       const newProject = await Project.create(name, description, userId);
+      
+      // JIKA project ini dibuat di dalam folder, langsung kita update database-nya
+      if (folderId) {
+        await db.query('UPDATE projects SET folder_id = ? WHERE id = ?', [folderId, newProject.id]);
+        newProject.folder_id = folderId;
+      }
+      
       res.json(newProject);
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+
+  updateProjectFolder: async (req, res) => {
+    // Tangkap ID dari URL (req.params.id) dan folderId dari body
+    const projectId = req.params.id; 
+    const { folderId } = req.body;
+    try {
+        await db.query('UPDATE projects SET folder_id = ? WHERE id = ?', [folderId, projectId]);
+        res.json({ message: 'Berhasil pindah folder!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
   },
 
@@ -44,19 +66,16 @@ module.exports = {
     }
   },
 
-  // MAIN MISSION: Fungsi eksekusi hapus database SQL secara permanen
   deleteProject: async (req, res) => {
     try {
       const { id } = req.params;
       const query = 'DELETE FROM projects WHERE id = ?';
 
-      // Eksekusi query aman yang adaptif dengan driver mysql/mysql2 proyekmu
       if (db && typeof db.query === 'function') {
         await db.query(query, [id]);
       } else if (db && typeof db.execute === 'function') {
         await db.execute(query, [id]);
       } else {
-        // Jika db diekspor sebagai fungsi pool langsung
         await db(query, [id]);
       }
 

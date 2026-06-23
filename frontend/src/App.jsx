@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Calendar as CalendarIcon, LogOut, FolderHeart, ListTodo, Shield, Menu, X } from 'lucide-react';
+import { Calendar as CalendarIcon, LogOut, FolderHeart, ListTodo, Shield, Menu, X, BarChart2 } from 'lucide-react';
 import axios from 'axios';
 import ProjectsDashboard from './pages/ProjectsDashboard';
 import ProjectDetail from './pages/ProjectDetail';
@@ -8,6 +8,7 @@ import PersonalCalendar from './pages/PersonalCalendar';
 import Login from './pages/Login';
 import TodoList from './pages/TodoList';
 import RoleManagement from './pages/RoleManagement';
+import Dashboard from './pages/Dashboard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
@@ -133,6 +134,10 @@ function App() {
           </div>
 
           <nav className="flex-1 p-4 space-y-2">
+            <Link to="/dashboard" onClick={closeSidebar} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+              <BarChart2 size={20} />
+              <span className="font-medium">Dashboard</span>
+            </Link>
             <Link to="/" onClick={closeSidebar} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
               <FolderHeart size={20} />
               <span className="font-medium">Projects</span>
@@ -167,6 +172,7 @@ function App() {
             <Route path="/calendar" element={<PersonalCalendar user={user} />} />
             <Route path="/todos" element={<TodoList user={user} />} />
             <Route path="/role-management" element={<RoleManagement user={user} />} />
+            <Route path="/dashboard" element={<Dashboard user={user} />} />
           </Routes>
         </div>
 

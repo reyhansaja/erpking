@@ -1,5 +1,5 @@
 const Project = require('../models/projectModel');
-const db = require('../db'); 
+const db = require('../db');
 
 module.exports = {
   getUserProjects: async (req, res) => {
@@ -15,16 +15,16 @@ module.exports = {
     try {
       // Frontend sekarang mengirimkan folderId juga g!
       const { name, description, userId, folderId } = req.body;
-      
+
       // Bikin project lewat model seperti biasa
       const newProject = await Project.create(name, description, userId);
-      
+
       // JIKA project ini dibuat di dalam folder, langsung kita update database-nya
       if (folderId) {
         await db.query('UPDATE projects SET folder_id = ? WHERE id = ?', [folderId, newProject.id]);
         newProject.folder_id = folderId;
       }
-      
+
       res.json(newProject);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -33,13 +33,13 @@ module.exports = {
 
   updateProjectFolder: async (req, res) => {
     // Tangkap ID dari URL (req.params.id) dan folderId dari body
-    const projectId = req.params.id; 
+    const projectId = req.params.id;
     const { folderId } = req.body;
     try {
-        await db.query('UPDATE projects SET folder_id = ? WHERE id = ?', [folderId, projectId]);
-        res.json({ message: 'Berhasil pindah folder!' });
+      await db.query('UPDATE projects SET folder_id = ? WHERE id = ?', [folderId, projectId]);
+      res.json({ message: 'Berhasil pindah folder!' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
     }
   },
 
@@ -83,6 +83,35 @@ module.exports = {
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
+  },
+
+  updateProjectStatus: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      if (!['on_progress', 'hold', 'done'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+      await db.query('UPDATE projects SET status = ? WHERE id = ?', [status, id]);
+      res.json({ success: true, status });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  getProjectStats: async (req, res) => {
+    try {
+      const [rows] = await db.query(`
+              SELECT status, COUNT(*) as count 
+              FROM projects 
+              GROUP BY status
+          `);
+      const stats = { on_progress: 0, hold: 0, done: 0 };
+      rows.forEach(r => { stats[r.status] = r.count; });
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
   }
 };

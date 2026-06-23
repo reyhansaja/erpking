@@ -8,11 +8,13 @@ const chatController = require('../controllers/chatController');
 // Project Endpoints
 router.get('/user/:userId', projectController.getUserProjects);
 router.post('/', projectController.createProject);
+router.get('/stats/summary', projectController.getProjectStats);
 router.get('/:id', projectController.getProjectDetails);
 router.post('/join/:token', projectController.joinProject);
 
 // MAIN MISSION: Rute Hapus Resmi
 router.delete('/:id', projectController.deleteProject);
+router.patch('/:id/status', projectController.updateProjectStatus);
 
 // Nested Tasks and Bugs within Project
 router.get('/:projectId/tasks', taskController.getProjectTasks);

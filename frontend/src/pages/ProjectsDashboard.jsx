@@ -10,19 +10,19 @@ export default function ProjectsDashboard({ user }) {
   // STATE DATA
   const [projects, setProjects] = useState([]);
   const [folders, setFolders] = useState([]);
-  
+
   // STATE INPUT FORM
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [joinToken, setJoinToken] = useState('');
-  
+
   // STATE UI CONTROLS
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [currentFolder, setCurrentFolder] = useState(null); 
-  const [dragOverFolderId, setDragOverFolderId] = useState(null); 
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // STATE MODAL
@@ -82,11 +82,11 @@ export default function ProjectsDashboard({ user }) {
     e.preventDefault();
     if (!newProjectName.trim() || !activeUser?.id) return;
     try {
-      await axios.post(`${API_URL}/projects`, { 
-        name: newProjectName, 
-        description: newProjectDesc, 
+      await axios.post(`${API_URL}/projects`, {
+        name: newProjectName,
+        description: newProjectDesc,
         userId: activeUser.id,
-        folderId: currentFolder ? currentFolder.id : null 
+        folderId: currentFolder ? currentFolder.id : null
       });
       setNewProjectName('');
       setNewProjectDesc('');
@@ -101,9 +101,9 @@ export default function ProjectsDashboard({ user }) {
     e.preventDefault();
     if (!newFolderName.trim() || !activeUser?.id) return;
     try {
-      await axios.post(`${API_URL}/folders`, { 
-        name: newFolderName, 
-        userId: activeUser.id 
+      await axios.post(`${API_URL}/folders`, {
+        name: newFolderName,
+        userId: activeUser.id
       });
       setNewFolderName('');
       setIsCreatingFolder(false);
@@ -147,7 +147,7 @@ export default function ProjectsDashboard({ user }) {
     if (!draggedProjectId) return;
 
     // Optimistic UI
-    setProjects(prev => prev.map(p => 
+    setProjects(prev => prev.map(p =>
       p.id.toString() === draggedProjectId ? { ...p, folder_id: folderId } : p
     ));
 
@@ -184,7 +184,7 @@ export default function ProjectsDashboard({ user }) {
   };
 
   // Filter project berdasarkan folder yang sedang dibuka
-  const displayedProjects = projects.filter(p => 
+  const displayedProjects = projects.filter(p =>
     currentFolder ? p.folder_id === currentFolder.id : !p.folder_id
   );
 
@@ -199,7 +199,7 @@ export default function ProjectsDashboard({ user }) {
 
   return (
     <div className="p-8 max-w-6xl mx-auto relative" onClick={() => setIsDropdownOpen(false)}>
-      
+
       {/* HEADER */}
       <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
         <div>
@@ -231,20 +231,20 @@ export default function ProjectsDashboard({ user }) {
               onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }}
               className="bg-indigo-600 text-white px-5 py-2.5 text-sm rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-semibold shrink-0"
             >
-              <Plus size={18} /> New <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}/>
+              <Plus size={18} /> New <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
-            
+
             {/* DROPDOWN MENU */}
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-20 py-2">
-                <button 
+                <button
                   onClick={() => { setIsCreatingProject(true); setIsCreatingFolder(false); setIsDropdownOpen(false); }}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
                 >
                   <Plus size={16} /> New Project
                 </button>
                 {!currentFolder && (
-                  <button 
+                  <button
                     onClick={() => { setIsCreatingFolder(true); setIsCreatingProject(false); setIsDropdownOpen(false); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
                   >
@@ -258,7 +258,7 @@ export default function ProjectsDashboard({ user }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-        
+
         {/* SIDEBAR FORMS */}
         <div className="lg:col-span-1 space-y-6">
           {isCreatingFolder && currentRole !== 'USER' && !currentFolder && (
@@ -295,11 +295,11 @@ export default function ProjectsDashboard({ user }) {
 
         {/* LIST FOLDERS & PROJECTS */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          
+
           {/* Render Folders */}
           {!currentFolder && folders.map(folder => (
-            <div 
-              key={`folder-${folder.id}`} 
+            <div
+              key={`folder-${folder.id}`}
               onClick={() => setCurrentFolder(folder)}
               onDragOver={(e) => onDragOver(e, folder.id)}
               onDragLeave={onDragLeave}
@@ -332,20 +332,20 @@ export default function ProjectsDashboard({ user }) {
               ].filter(d => d.value > 0);
 
               return (
-                <div 
-                  key={project.id} 
-                  draggable 
+                <div
+                  key={project.id}
+                  draggable
                   onDragStart={(e) => onDragStart(e, project.id)}
                   className="block group cursor-grab active:cursor-grabbing relative h-full"
                 >
                   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all h-full flex flex-col relative">
-                    
+
                     {currentRole === 'SUPERADMIN' && (
                       <button onClick={(e) => openDeleteModal(e, project)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition-colors z-10" title="Delete Project">
                         <Trash size={18} />
                       </button>
                     )}
-                    
+
                     <Link to={`/project/${project.id}`} className="flex-1 flex flex-col">
                       <div className="flex justify-between items-start mb-4">
                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
@@ -377,7 +377,41 @@ export default function ProjectsDashboard({ user }) {
                       )}
 
                       <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center text-xs font-medium text-gray-400">
-                        <span>Drag to Folder / Click to Open</span>
+                        <div className="flex flex-col gap-1">
+                          <span>Drag to Folder / Click to Open</span>
+                          <select
+                            value={project.status || 'on_progress'}
+                            onClick={(e) => e.preventDefault()}
+                            onChange={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const newStatus = e.target.value;
+                              // Update UI dulu (optimistic)
+                              setProjects(prev => prev.map(p =>
+                                p.id === project.id ? { ...p, status: newStatus } : p
+                              ));
+                              try {
+                                await axios.patch(`${API_URL}/projects/${project.id}/status`, {
+                                  status: newStatus
+                                });
+                              } catch (err) {
+                                console.error('Gagal update status:', err);
+                                // Rollback kalau gagal
+                                setProjects(prev => prev.map(p =>
+                                  p.id === project.id ? { ...p, status: project.status } : p
+                                ));
+                              }
+                            }}
+                            className={`text-xs font-semibold px-2 py-1 rounded-md border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-300 w-fit
+                                    ${project.status === 'done' ? 'bg-emerald-50 text-emerald-600' :
+                                project.status === 'hold' ? 'bg-amber-50 text-amber-600' :
+                                  'bg-indigo-50 text-indigo-600'}`}
+                          >
+                            <option value="on_progress">🔵 On Progress</option>
+                            <option value="hold">🟡 Hold</option>
+                            <option value="done">🟢 Done</option>
+                          </select>
+                        </div>
                         <span className="flex items-center gap-1 text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">Open &rarr;</span>
                       </div>
                     </Link>

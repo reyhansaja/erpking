@@ -13,6 +13,7 @@ const userController = {
       res.status(500).json({ error: error.message });
     }
   },
+  
   createUser: async (req, res) => {
     try {
       const { username, email, password } = req.body;
@@ -24,6 +25,7 @@ const userController = {
       res.status(500).json({ error: error.message });
     }
   },
+  
   loginUser: async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -39,6 +41,7 @@ const userController = {
       res.status(500).json({ error: error.message });
     }
   },
+  
   updateUserRole: async (req, res) => {
     try {
       const { id } = req.params;
@@ -53,6 +56,7 @@ const userController = {
       res.status(500).json({ error: error.message });
     }
   },
+  
   getUserById: async (req, res) => {
     try {
       const { id } = req.params;
@@ -63,39 +67,55 @@ const userController = {
       res.status(500).json({ error: error.message });
     }
   },
+  
   loginSSO: async (req, res) => {
     try {
       const { token } = req.body;
       if (!token) return res.status(400).json({ error: 'Token is required' });
 
-      // Verify the token using shared JWT_SECRET
+      // Verifikasi token dari web induk
       const decoded = jwt.verify(token, JWT_SECRET);
 
+      // ==== PERBAIKAN LOGIKA PENCARIAN AKUN (BONGKAR PAYLOAD AGRESIF) ====
+      // Jaga-jaga kalau payload dari web induk bersarang di dalam objek 'user' atau 'data'
+      const tokenPayload = decoded.user || decoded.data || decoded;
+      
+      const targetEmail = tokenPayload.email || tokenPayload.user_email;
+      const targetUsername = tokenPayload.username || tokenPayload.name || tokenPayload.user_name;
+
       let user = null;
-      if (decoded.email) {
-        user = await User.getByEmail(decoded.email);
+
+      // 1. Cek berdasarkan Email (Ini yang paling utama biar nyambung g!)
+      if (targetEmail) {
+        user = await User.getByEmail(targetEmail);
       }
       
-      if (!user && decoded.username) {
-        user = await User.getByUsername(decoded.username);
+      // 2. Kalau email belum ketemu/kosong dari sana, coba pakai Username
+      if (!user && targetUsername) {
+        user = await User.getByUsername(targetUsername);
       }
 
-      // Auto-Provisioning: create user if not exists
+      // 3. Auto-Provisioning: Kalau beneran belum pernah login sama sekali, baru kita buatkan akunnya
       if (!user) {
         const defaultPasswordHash = await bcrypt.hash('infimech_sso_default_pass_123', 10);
-        const username = decoded.username || 'sso_user_' + Math.floor(Math.random() * 10000);
-        const email = decoded.email || `${username}@infimech-tech.com`;
+        
+        // Pastikan nama gak acak lagi kalau dari induk udah ngasih nama
+        const username = targetUsername || 'sso_user_' + Math.floor(Math.random() * 10000);
+        const email = targetEmail || `${username}@infimech-tech.com`;
         
         // Map Infimech-ERP roles to ERPKing roles (SUPERADMIN, ADMIN, USER)
         let role = 'USER';
-        if (decoded.roleName === 'Superadmin') {
+        const incomingRole = tokenPayload.roleName || tokenPayload.role || '';
+        
+        if (incomingRole === 'Superadmin' || incomingRole === 'SUPERADMIN') {
           role = 'SUPERADMIN';
-        } else if (decoded.roleName === 'Admin' || decoded.roleName === 'Manajemen') {
+        } else if (incomingRole === 'Admin' || incomingRole === 'Manajemen' || incomingRole === 'ADMIN') {
           role = 'ADMIN';
         }
 
         user = await User.createWithRole(username, email, defaultPasswordHash, role);
       }
+      // ===================================================================
 
       // Generate local localToken for ERPKing
       const localToken = jwt.sign(

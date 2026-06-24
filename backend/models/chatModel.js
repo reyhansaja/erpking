@@ -11,10 +11,13 @@ const Chat = {
     `, [projectId]);
     return rows;
   },
-  create: async (projectId, userId, message) => {
+  
+  // Parameter file_url dan file_type kita kasih default null biar aman kalau cuma kirim teks
+  create: async (projectId, userId, message, file_url = null, file_type = null) => {
+    // Masukkan file_url dan file_type ke dalam query INSERT g!
     const [result] = await db.query(
-      'INSERT INTO chats (project_id, user_id, message) VALUES (?, ?, ?)',
-      [projectId, userId, message]
+      'INSERT INTO chats (project_id, user_id, message, file_url, file_type) VALUES (?, ?, ?, ?, ?)',
+      [projectId, userId, message, file_url, file_type]
     );
     
     const [rows] = await db.query(`

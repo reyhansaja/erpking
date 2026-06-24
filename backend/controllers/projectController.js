@@ -53,6 +53,19 @@ module.exports = {
     }
   },
 
+  // Taruh di bawah createProject atau di mana aja dalam module.exports
+  updateProjectDetails: async (req, res) => {
+    const { id } = req.params;
+    const { name, description } = req.body;
+    try {
+      // Eksekusi update nama dan deskripsi ke database
+      await db.query('UPDATE projects SET name = ?, description = ? WHERE id = ?', [name, description, id]);
+      res.json({ success: true, message: 'Berhasil update detail project!' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   joinProject: async (req, res) => {
     try {
       const { userId } = req.body;

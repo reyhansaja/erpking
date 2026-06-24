@@ -27,6 +27,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
 
 app.get('/', (req, res) => {
   res.status(200).send('Backend ERPKu Aktif g!');
@@ -58,6 +59,7 @@ app.set('io', io);
 app.get('/api/folders/user/:userId', folderController.getUserFolders);
 app.post('/api/folders', folderController.createFolder);
 app.put('/api/projects/:id/move', projectController.updateProjectFolder);
+app.put('/api/projects/:id', projectController.updateProjectDetails);
 // ===================================================
 
 app.use('/api/users', userRoutes);

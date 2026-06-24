@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, LayoutDashboard, Bug, Link as LinkIcon, MessageSquare } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Bug, Link as LinkIcon, MessageSquare, Edit2, X, Save } from 'lucide-react';
 import KanbanBoard from './KanbanBoard';
 import GanttChart from './GanttChart';
 import FeaturesBugs from './FeaturesBugs';
@@ -18,11 +18,25 @@ export default function ProjectDetail({ user }) {
   // STATE BARU: Untuk nampung jumlah chat yang belum dibaca g!
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // STATE UNTUK FITUR EDIT PROJECT
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+
+  // Pastikan ambil role yang bener buat hak akses
+  const localUserData = JSON.parse(localStorage.getItem('user'));
+  const activeUser = user || localUserData;
+  const isSuperAdmin = activeUser?.role === 'SUPERADMIN';
+
   useEffect(() => {
     const fetchProject = async () => {
       try {
         const res = await axios.get(`${API_URL}/projects/${id}`);
         setProject(res.data);
+        
+        // Isi form edit pake data aslinya pas awal load
+        setEditName(res.data.name);
+        setEditDesc(res.data.description || '');
       } catch (error) {
         console.error(error);
       }
@@ -41,11 +55,9 @@ export default function ProjectDetail({ user }) {
         const storageKey = `chat_viewed_count_${id}`;
 
         if (activeTab === 'chat') {
-          // Kalau lagi buka tab chat, reset notif dan simpan jumlah terbaru ke memori
           localStorage.setItem(storageKey, totalChatsInDB.toString());
           setUnreadCount(0);
         } else {
-          // Kalau buka tab lain, bandingkan jumlah chat di DB dengan memori terakhir
           const viewedChats = parseInt(localStorage.getItem(storageKey) || '0');
           if (totalChatsInDB > viewedChats) {
             setUnreadCount(totalChatsInDB - viewedChats);
@@ -56,14 +68,28 @@ export default function ProjectDetail({ user }) {
       }
     };
 
-    // Panggil sekali pas komponen dimuat
     checkUnreadChats();
-    
-    // Polling: Cek diam-diam tiap 5 detik
     const interval = setInterval(checkUnreadChats, 5000);
     return () => clearInterval(interval);
   }, [id, activeTab]); 
   // =================================================
+
+  // FUNGSI UNTUK SIMPAN PERUBAHAN NAMA PROJECT
+  const handleUpdateProject = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${API_URL}/projects/${id}`, {
+        name: editName,
+        description: editDesc
+      });
+      // Langsung update layar tanpa perlu nge-fetch ulang dari backend
+      setProject({ ...project, name: editName, description: editDesc });
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error("Gagal update project:", error);
+      alert("Gagal menyimpan perubahan g!");
+    }
+  };
 
   if (!project) return <div className="p-8 text-center text-gray-500">Loading project...</div>;
 
@@ -72,10 +98,27 @@ export default function ProjectDetail({ user }) {
       {/* Project Header */}
       <div className="px-8 py-6 border-b border-gray-200 bg-white sticky top-0 z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <Link to="/" className="text-gray-400 hover:text-indigo-600 mb-2 inline-flex items-center gap-1 transition-colors text-sm font-medium">
-            <ArrowLeft size={16} /> Back to Projects
+          {/* TOMBOL BACK YANG UDAH PINTAR g! */}
+          <Link 
+            to={project.folder_id ? `/?folder=${project.folder_id}` : "/"} 
+            className="text-gray-400 hover:text-indigo-600 mb-2 inline-flex items-center gap-1 transition-colors text-sm font-medium"
+          >
+            <ArrowLeft size={16} /> Back to {project.folder_id ? 'Folder' : 'Projects'}
           </Link>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">{project.name}</h2>
+          
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">{project.name}</h2>
+            {/* TOMBOL EDIT PROJECT (Cuma Superadmin yg bisa liat) */}
+            {isSuperAdmin && (
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                title="Edit Nama Project"
+              >
+                <Edit2 size={18} />
+              </button>
+            )}
+          </div>
           {project.description && <p className="text-gray-500 mt-1">{project.description}</p>}
         </div>
 
@@ -157,6 +200,52 @@ export default function ProjectDetail({ user }) {
         {activeTab === 'gantt' && <GanttChart projectId={project.id} user={user} />}
         {activeTab === 'chat' && <ProjectChat projectId={project.id} user={user} />}
       </div>
+
+      {/* MODAL EDIT PROJECT */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-xl max-w-md w-full overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <Edit2 size={18} className="text-indigo-600" /> Edit Detail Project
+              </h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateProject} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Nama Project</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Deskripsi</label>
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-2">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition text-sm font-semibold">
+                  Batal
+                </button>
+                <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 hover:bg-indigo-700 transition text-sm font-semibold shadow-sm">
+                  <Save size={16} /> Simpan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

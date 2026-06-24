@@ -11,14 +11,15 @@ const bugNoteRoutes = require('./routes/bugNoteRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const todoRoutes = require('./routes/todoRoutes');
 
-// === TAMBAHAN CONTROLLER BARU KITA g! ===
 const folderController = require('./controllers/folderController');
 const projectController = require('./controllers/projectController');
-// ========================================
 
 const app = express();
 
-// ==== CORS: gunakan FRONTEND_URL jika diset, fallback ke wildcard untuk dev
+// === PENTING: Tambahkan ini agar deteksi HTTPS di Cloud Run jalan! ===
+app.set('trust proxy', 1); 
+// ===================================================================
+
 const allowedOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*';
 app.use(cors({
   origin: allowedOrigins,
@@ -35,7 +36,6 @@ app.get('/', (req, res) => {
 
 const server = http.createServer(app);
 
-// ==== SOCKET IO JUGA DIBIKIN KEBAL CORS ====
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -55,12 +55,10 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
-// === TAMBAHAN ROUTE UNTUK FOLDER & DRAG-AND-DROP ===
 app.get('/api/folders/user/:userId', folderController.getUserFolders);
 app.post('/api/folders', folderController.createFolder);
 app.put('/api/projects/:id/move', projectController.updateProjectFolder);
 app.put('/api/projects/:id', projectController.updateProjectDetails);
-// ===================================================
 
 app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);

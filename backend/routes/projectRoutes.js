@@ -39,6 +39,12 @@ router.get('/stats/summary', projectController.getProjectStats);
 router.get('/:id', projectController.getProjectDetails);
 router.post('/join/:token', projectController.joinProject);
 
+// Invite member
+router.get('/users/all', projectController.getAllUsers);
+router.get('/:id/members', projectController.getProjectMembers);
+router.post('/:id/invite', projectController.inviteUserToProject);
+router.delete('/:id/members/:userId', projectController.removeUserFromProject);
+
 // MAIN MISSION: Rute Hapus Resmi
 router.delete('/:id', projectController.deleteProject);
 router.patch('/:id/status', projectController.updateProjectStatus);

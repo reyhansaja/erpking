@@ -14,6 +14,28 @@ const Project = {
   getUserProjects: async (userId) => {
     return Project.getByUserId(userId);
   },
+  getAlluser: async () => {
+    const [rows] = await db.query(
+      'SELECT id, username, email FROM users ORDER BY username ASC'
+    );
+    return rows;
+  },
+  getProjecrMember: async (projectId) => {
+    const [rows] = await db.query(
+      `SELECT u.id, u.username, u.email 
+       FROM users u 
+       JOIN project_users pu ON u.id = pu.user_id 
+       WHERE pu.project_id = ?`,
+      [projectId]
+    );
+    return rows;
+  },
+  removeUserFromProject: async (projectId, userId) => {
+    await db.query(
+      'DELETE FROM project_users WHERE project_id = ? AND user_id = ?',
+      [projectId, userId]
+    );
+  },
   create: async (name, description, userId) => {
     const invite_token = Math.random().toString(36).substring(2, 15);
     const [result] = await db.query(

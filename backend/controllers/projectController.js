@@ -126,5 +126,74 @@ module.exports = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
-  }
+  },
+
+  getAllUsers: async (req, res) => {
+    try {
+      const users = await Project.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  getProjectMembers: async (req, res) => {
+    try {
+      const members = await Project.getProjectMembers(req.params.id);
+      res.json(members);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  inviteUserToProject: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+      await Project.addUserToProject(id, userId);
+
+      // Kirim email notifikasi ke user yang diundang
+      const [users] = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+      const [projects] = await db.query('SELECT * FROM projects WHERE id = ?', [id]);
+      if (users.length > 0 && projects.length > 0) {
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: 587,
+          secure: false,
+          auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+        });
+        await transporter.sendMail({
+          from: `"ERPKu System" <${process.env.EMAIL_USER}>`,
+          to: users[0].email,
+          subject: `📩 Kamu diundang ke project: ${projects[0].name}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 520px;">
+              <h2 style="color:#4f46e5;">Undangan Project 📩</h2>
+              <p>Halo <strong>${users[0].username}</strong>,</p>
+              <p>Kamu telah diundang untuk bergabung ke project <strong>${projects[0].name}</strong> di ERPKu.</p>
+              <div style="background:#eff6ff; border-left:4px solid #4f46e5; padding:12px 16px; border-radius:6px; margin:16px 0;">
+                Silakan login ke ERPKu untuk mulai berkontribusi.
+              </div>
+              <p style="color:#888; font-size:12px;">— ERPKu System</p>
+            </div>
+          `
+        }).catch(err => console.error('Gagal kirim email undangan:', err.message));
+      }
+
+      res.json({ success: true, message: 'User berhasil diundang' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  removeUserFromProject: async (req, res) => {
+    try {
+      const { id, userId } = req.params;
+      await Project.removeUserFromProject(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
 };

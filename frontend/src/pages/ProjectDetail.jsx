@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, LayoutDashboard, Bug, Link as LinkIcon, MessageSquare, Edit2, X, Save } from 'lucide-react';
 import KanbanBoard from './KanbanBoard';
 import GanttChart from './GanttChart';
 import FeaturesBugs from './FeaturesBugs';
 import ProjectChat from './ProjectChat';
 import ProjectDashboard from './ProjectDashboard';
+import { ArrowLeft, LayoutDashboard, Bug, Link as LinkIcon, MessageSquare, Edit2, X, Save, UserPlus } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://erpking-backend-353150454444.asia-southeast1.run.app/api';
 
@@ -15,6 +15,11 @@ export default function ProjectDetail({ user }) {
   const [project, setProject] = useState(null);
   const [activeTab, setActiveTab] = useState('kanban');
   
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [searchUser, setSearchUser] = useState('');
+
   // STATE BARU: Untuk nampung jumlah chat yang belum dibaca g!
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -91,6 +96,38 @@ export default function ProjectDetail({ user }) {
     }
   };
 
+  const fetchMembersAndUsers = async () => {
+  try {
+    const [usersRes, membersRes] = await Promise.all([
+      axios.get(`${API_URL}/projects/users/all`),
+      axios.get(`${API_URL}/projects/${id}/members`)
+    ]);
+    setAllUsers(usersRes.data);
+    setProjectMembers(membersRes.data);
+  } catch (err) {
+    console.error('Gagal fetch users:', err);
+  }
+};
+
+const handleInviteUser = async (userId) => {
+  try {
+    await axios.post(`${API_URL}/projects/${id}/invite`, { userId });
+    await fetchMembersAndUsers();
+  } catch (err) {
+    alert('Gagal mengundang user');
+  }
+};
+
+const handleRemoveUser = async (userId) => {
+  if (!confirm('Keluarkan user ini dari project?')) return;
+  try {
+    await axios.delete(`${API_URL}/projects/${id}/members/${userId}`);
+    await fetchMembersAndUsers();
+  } catch (err) {
+    alert('Gagal mengeluarkan user');
+  }
+};
+
   if (!project) return <div className="p-8 text-center text-gray-500">Loading project...</div>;
 
   return (
@@ -116,6 +153,15 @@ export default function ProjectDetail({ user }) {
                 title="Edit Nama Project"
               >
                 <Edit2 size={18} />
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                onClick={() => { setIsInviteModalOpen(true); fetchMembersAndUsers(); }}
+                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="Undang User ke Project"
+              >
+                <UserPlus size={18} />
               </button>
             )}
           </div>
@@ -245,6 +291,70 @@ export default function ProjectDetail({ user }) {
           </div>
         </div>
       )}
+
+      {isInviteModalOpen && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-xl max-w-md w-full overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+          <UserPlus size={18} className="text-green-600" /> Undang User ke Project
+        </h3>
+        <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+          <X size={20} />
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        {/* Member yang sudah ada */}
+        <div>
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Member Saat Ini</div>
+          <div className="flex flex-wrap gap-2">
+            {projectMembers.map(m => (
+              <div key={m.id} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full">
+                {m.username}
+                <button onClick={() => handleRemoveUser(m.id)} className="ml-1 text-red-400 hover:text-red-600">✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cari user */}
+        <div>
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Tambah User</div>
+          <input
+            type="text"
+            placeholder="Cari nama atau email..."
+            value={searchUser}
+            onChange={e => setSearchUser(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-2"
+          />
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {allUsers
+              .filter(u =>
+                !projectMembers.find(m => m.id === u.id) &&
+                (u.username.toLowerCase().includes(searchUser.toLowerCase()) ||
+                 u.email.toLowerCase().includes(searchUser.toLowerCase()))
+              )
+              .map(u => (
+                <div key={u.id} className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50">
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">{u.username}</div>
+                    <div className="text-xs text-gray-500">{u.email}</div>
+                  </div>
+                  <button
+                    onClick={() => handleInviteUser(u.id)}
+                    className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600 transition"
+                  >
+                    + Undang
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   );
